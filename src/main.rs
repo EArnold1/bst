@@ -1,7 +1,13 @@
-use std::println;
+use crate::avl::run_avl;
+
+mod avl;
 
 // All values in the left subtree of a node are less than the node's value,
 // and all values in the right subtree are greater than the node's value.
+
+// Time taken for a search depends on the height of the tree.
+// min time taken is O(log n) for a balanced tree h = log(n)
+// max time taken is O(n) for an unbalanced tree h = n
 
 #[derive(Clone, Debug)]
 struct Node {
@@ -132,21 +138,23 @@ impl Tree {
 // }
 
 fn main() {
-    let mut tree = Tree::new();
+    // let mut tree = Tree::new();
 
     // recursive_insert(&mut tree.root, 5);
     // recursive_insert(&mut tree.root, 2);
     // recursive_insert(&mut tree.root, 7);
     // recursive_insert(&mut tree.root, 10);
     // recursive_insert(&mut tree.root, 3);
-    tree.insert(5);
-    tree.insert(2);
-    tree.insert(7);
-    tree.insert(10);
-    tree.insert(3);
+    // tree.insert(5);
+    // tree.insert(2);
+    // tree.insert(7);
+    // tree.insert(10);
+    // tree.insert(3);
 
-    tree.delete(3);
-    let search = tree.search(3);
-    println!("{:?}", search);
-    println!("{:?}", tree.root);
+    // tree.delete(3);
+    // let search = tree.search(3);
+    // println!("{:?}", search);
+    // println!("{:?}", tree.root);
+
+    run_avl();
 }
