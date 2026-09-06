@@ -1,9 +1,9 @@
 // balanced_factor is between -1 and 1
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct Node {
-    key: i32,
-    height: i8, // 0-based
+    pub key: i32,
+    height: i8, // 0-based, meaning leaf nodes have height 0
     left: Option<Box<Node>>,
     right: Option<Box<Node>>,
 }
@@ -23,6 +23,10 @@ struct AvlTree {
     pub root: Option<Box<Node>>,
 }
 
+// TODOS:
+// 1. Search
+// 2. Delete
+
 impl AvlTree {
     pub fn new() -> Self {
         Self { root: None }
@@ -33,50 +37,72 @@ impl AvlTree {
     }
 
     fn ll_rotation(node: &mut Option<Box<Node>>) {
-        let left = node.as_mut().unwrap().left.take();
-        let mut new_root = left.unwrap();
-        new_root.right = node.take();
+        let mut old_root = node.take().unwrap();
+        let mut new_root = old_root.left.take().unwrap();
+
+        // Preserve the middle subtree
+        old_root.left = new_root.right.take();
+
+        // Put old root under new root
+        new_root.right = Some(old_root);
 
         Self::update_height(new_root.right.as_mut().unwrap());
         Self::update_height(&mut new_root);
+
         *node = Some(new_root);
     }
 
     fn lr_rotation(node: &mut Option<Box<Node>>) {
-        let right_of_left = node.as_mut().unwrap().left.as_mut().unwrap().right.take();
-        let mut new_root = right_of_left.unwrap();
+        let mut old_root = node.take().unwrap();
+        let mut left = old_root.left.take().unwrap();
+        let mut new_root = left.right.take().unwrap();
 
-        let left = node.as_mut().unwrap().left.take();
-        new_root.left = left;
+        // preserve the subtrees of the new root
+        left.right = new_root.left.take();
+        old_root.left = new_root.right.take();
+
+        new_root.left = Some(left);
+        new_root.right = Some(old_root);
+
         Self::update_height(new_root.left.as_mut().unwrap());
-
-        new_root.right = node.take();
         Self::update_height(new_root.right.as_mut().unwrap());
         Self::update_height(&mut new_root);
+
         *node = Some(new_root);
     }
 
     fn rr_rotation(node: &mut Option<Box<Node>>) {
-        let right = node.as_mut().unwrap().right.take();
-        let mut new_root = right.unwrap();
-        new_root.left = node.take();
+        let mut old_root = node.take().unwrap();
+        let mut new_root = old_root.right.take().unwrap();
+
+        // Preserve the middle subtree
+        old_root.right = new_root.left.take();
+
+        // Put old root under new root
+        new_root.left = Some(old_root);
 
         Self::update_height(new_root.left.as_mut().unwrap());
         Self::update_height(&mut new_root);
+
         *node = Some(new_root);
     }
 
     fn rl_rotation(node: &mut Option<Box<Node>>) {
-        let left_of_right = node.as_mut().unwrap().right.as_mut().unwrap().left.take();
-        let mut new_root = left_of_right.unwrap();
+        let mut old_root = node.take().unwrap();
+        let mut right = old_root.right.take().unwrap();
+        let mut new_root = right.left.take().unwrap();
 
-        let right = node.as_mut().unwrap().right.take();
-        new_root.right = right;
-        Self::update_height(new_root.right.as_mut().unwrap());
+        // Preserve both middle subtrees
+        old_root.right = new_root.left.take();
+        right.left = new_root.right.take();
 
-        new_root.left = node.take();
+        new_root.left = Some(old_root);
+        new_root.right = Some(right);
+
         Self::update_height(new_root.left.as_mut().unwrap());
+        Self::update_height(new_root.right.as_mut().unwrap());
         Self::update_height(&mut new_root);
+
         *node = Some(new_root);
     }
 
@@ -87,7 +113,10 @@ impl AvlTree {
             }
 
             Some(n) => {
-                // skip seen value
+                if n.key == key {
+                    return;
+                }
+
                 if n.key > key {
                     Self::insert_node(&mut n.left, key);
                 } else {
@@ -135,64 +164,148 @@ impl AvlTree {
         ) + 1;
     }
 
-    pub fn traversal(&self) -> Vec<i32> {
+    pub fn in_order_traversal(&self) -> Vec<i32> {
         let mut result = Vec::new();
-        Self::in_order_traversal(&self.root, &mut result);
+        Self::traversal_in_order(&self.root, &mut result);
         result
     }
 
-    fn in_order_traversal(node: &Option<Box<Node>>, result: &mut Vec<i32>) {
+    pub fn root_node(&self) -> Option<&Node> {
+        self.root.as_deref()
+    }
+
+    fn traversal_in_order(node: &Option<Box<Node>>, result: &mut Vec<i32>) {
         // LEFT -> NODE(ROOT) -> RIGHT
         if let Some(n) = node {
-            Self::in_order_traversal(&n.left, result);
+            Self::traversal_in_order(&n.left, result);
             result.push(n.key);
-            Self::in_order_traversal(&n.right, result);
+            Self::traversal_in_order(&n.right, result);
         }
     }
 }
 
-// TESTS to assert
-// 1. BST ordering is valid
-// 2. Every node has |BF| <= 1 (absolute BF is <= 1)
-// 3. Stored/computed heights are correct
-// 4. In-order traversal is sorted
-
 pub fn run_avl() {
     let mut tree = AvlTree::new();
-    // tree.insert(30);
-    // tree.insert(20);
-    // tree.insert(10);
-    // tree.insert(5);
-
-    // tree.insert(10);
-    // tree.insert(30);
-    // tree.insert(20);
-    // tree.insert(5);
-    // tree.insert(40);
-    // tree.insert(30);
-    // tree.insert(50);
-    // tree.insert(20);
-    // tree.insert(35);
-    // tree.insert(45);
-    // tree.insert(60);
-    // tree.insert(70);
-    // tree.insert(41);
-    // tree.insert(42);
-    // tree.insert(46);
 
     for i in [45, 40, 30, 41, 35, 46, 60, 50, 20, 42, 70] {
         tree.insert(i);
     }
 
-    let in_order = tree.traversal();
-    println!("In-order traversal: {:?}", in_order);
-    // [20, 30, 35, 40, 41, 42, 45, 46, 50, 60, 70]
-    // [20, 30, 35, 40, 45, 46, 50, 60, 70]
-    // let mut root = Node::new(10);
-    // root.right = Some(Box::new(Node::new(20)));
+    let in_order = tree.in_order_traversal();
 
-    // root.bf = AvlTree::bf(&root);
-    // println!("{:#?}", root);
+    println!("in-order traversal: {:?}", in_order);
+    println!("{:#?}", tree.root_node());
+}
 
-    // println!("{:#?}", tree.root);
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_bst_ordering() {
+        let mut tree = AvlTree::new();
+
+        tree.insert(20);
+        tree.insert(30);
+        tree.insert(10);
+
+        let mut root_node = Node::new(20);
+        root_node.height = 1;
+        root_node.left = Some(Box::new(Node::new(10)));
+        root_node.right = Some(Box::new(Node::new(30)));
+
+        assert_eq!(tree.root_node(), Some(&root_node));
+    }
+
+    // balanced factor check
+    // This test ensures that the balanced factor (BF) of every node in the AVL tree is within the allowed range (-1, 0, 1).
+    #[test]
+    fn test_absolute_balanced_factor() {
+        let mut tree = AvlTree::new();
+
+        tree.insert(20);
+        tree.insert(30);
+        tree.insert(10);
+
+        fn check_bf(node: Option<&Node>) -> bool {
+            if let Some(n) = node {
+                let bf = AvlTree::bf(n);
+                if bf.abs() > 1 {
+                    return false;
+                }
+                return check_bf(n.left.as_deref()) && check_bf(n.right.as_deref());
+            }
+            true
+        }
+
+        assert!(check_bf(tree.root.as_deref()));
+    }
+
+    #[test]
+    fn test_balanced_factor() {
+        let mut tree = AvlTree::new();
+
+        tree.insert(20);
+        tree.insert(30);
+        tree.insert(10);
+
+        let root_node = tree.root_node().unwrap();
+        let left_child = root_node.left.as_deref().unwrap();
+        let right_child = root_node.right.as_deref().unwrap();
+
+        assert_eq!(AvlTree::bf(root_node), 0);
+        assert_eq!(AvlTree::bf(left_child), 0);
+        assert_eq!(AvlTree::bf(right_child), 0);
+    }
+
+    // height check
+    #[test]
+    fn test_height() {
+        let mut tree = AvlTree::new();
+
+        tree.insert(20);
+        tree.insert(40);
+        tree.insert(15);
+        tree.insert(25);
+        tree.insert(45);
+
+        assert_eq!(tree.root_node().unwrap().height, 2);
+    }
+
+    // in-order traversal check
+    #[test]
+    fn test_in_order_traversal() {
+        let mut tree = AvlTree::new();
+
+        tree.insert(20);
+        tree.insert(30);
+        tree.insert(10);
+
+        assert_eq!(tree.in_order_traversal(), vec![10, 20, 30]);
+    }
+
+    // duplicate insertion check
+    #[test]
+    fn test_duplicate_insertion() {
+        let mut tree = AvlTree::new();
+
+        tree.insert(20);
+        tree.insert(20); // duplicate insertion
+
+        assert_eq!(tree.in_order_traversal(), vec![20]);
+    }
+
+    // rotation check
+    #[test]
+    fn test_rotation() {
+        let mut tree = AvlTree::new();
+
+        tree.insert(10);
+        tree.insert(20);
+        tree.insert(30); // should trigger a rotation
+
+        assert_eq!(tree.in_order_traversal(), vec![10, 20, 30]);
+        assert_eq!(tree.root_node().unwrap().key, 20);
+    }
 }
