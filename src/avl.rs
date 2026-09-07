@@ -1,4 +1,6 @@
 // balanced_factor is between -1 and 1
+// an AVL Tree is a balanced binary search tree
+// after an insert, a rebalancing check is performed to maintain the AVL property
 
 #[derive(Debug, Clone, PartialEq)]
 struct Node {
@@ -21,6 +23,30 @@ impl Node {
 
 struct AvlTree {
     pub root: Option<Box<Node>>,
+    stack: Vec<Node>,
+}
+
+impl Iterator for AvlTree {
+    type Item = Node;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // Push all the way down the left side
+        // the stack will contain something like:
+        // [parent, parent_left_child], left_child is popped, root becomes None
+        // the parent is popped([]) and the root becomes the parent right child
+        // stack gets updated [parent_right_child] and the stack is popped again leaving the stack empty
+        while let Some(mut node) = self.root.take() {
+            self.root = node.left.take();
+            self.stack.push(*node);
+        }
+
+        let mut node = self.stack.pop()?; // This is the point that returns None if no item is found in the stack
+
+        // move to right
+        self.root = node.right.take();
+
+        Some(node)
+    }
 }
 
 // TODOS:
@@ -29,7 +55,10 @@ struct AvlTree {
 
 impl AvlTree {
     pub fn new() -> Self {
-        Self { root: None }
+        Self {
+            root: None,
+            stack: Vec::new(),
+        }
     }
 
     pub fn insert(&mut self, key: i32) {
@@ -144,13 +173,36 @@ impl AvlTree {
         }
     }
 
+    pub fn search(&self, key: i32) -> Option<&Node> {
+        let mut curr = self.root.as_ref();
+
+        while let Some(node) = curr {
+            if node.key == key {
+                return Some(node);
+            }
+
+            if node.key > key {
+                // move left
+                curr = node.left.as_ref();
+            } else {
+                // move right
+                curr = node.right.as_ref();
+            }
+        }
+
+        None
+    }
+
     /// Calculates balanced factor of a node
+    /// a balanced factor is between -1 and 1
     ///
     /// bf = height(left subtree) - height(right subtree)
     fn bf(node: &Node) -> i8 {
         Self::height(node.left.as_deref()) - Self::height(node.right.as_deref())
     }
 
+    /// The height is 0-based,
+    /// so a leaf node's height is 0
     fn height(node: Option<&Node>) -> i8 {
         // height of a None node is -1
         node.as_ref().map_or(-1, |node| node.height)
@@ -191,8 +243,11 @@ pub fn run_avl() {
         tree.insert(i);
     }
 
+    let search = tree.search(35);
+
     let in_order = tree.in_order_traversal();
 
+    println!("search result for 35: {:?}", search);
     println!("in-order traversal: {:?}", in_order);
     println!("{:#?}", tree.root_node());
 }
@@ -243,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn test_balanced_factor() {
+    fn test_bst_nodes_balanced_factor() {
         let mut tree = AvlTree::new();
 
         tree.insert(20);
@@ -261,7 +316,7 @@ mod tests {
 
     // height check
     #[test]
-    fn test_height() {
+    fn test_root_height_after_insertions() {
         let mut tree = AvlTree::new();
 
         tree.insert(20);
@@ -275,7 +330,7 @@ mod tests {
 
     // in-order traversal check
     #[test]
-    fn test_in_order_traversal() {
+    fn returns_in_order_traversal() {
         let mut tree = AvlTree::new();
 
         tree.insert(20);
@@ -287,7 +342,7 @@ mod tests {
 
     // duplicate insertion check
     #[test]
-    fn test_duplicate_insertion() {
+    fn ignore_duplicate_insertion() {
         let mut tree = AvlTree::new();
 
         tree.insert(20);
@@ -298,7 +353,7 @@ mod tests {
 
     // rotation check
     #[test]
-    fn test_rotation() {
+    fn test_rotation_balance_after_insert() {
         let mut tree = AvlTree::new();
 
         tree.insert(10);
@@ -307,5 +362,33 @@ mod tests {
 
         assert_eq!(tree.in_order_traversal(), vec![10, 20, 30]);
         assert_eq!(tree.root_node().unwrap().key, 20);
+    }
+
+    #[test]
+    fn search_returns_matching_node() {
+        let mut tree = AvlTree::new();
+
+        tree.insert(10);
+        tree.insert(20);
+        tree.insert(30);
+        tree.insert(65);
+        tree.insert(15);
+
+        let expected = Node::new(15);
+
+        assert_eq!(tree.search(15), Some(&expected));
+    }
+
+    #[test]
+    fn search_returns_none_when_key_does_not_exist() {
+        let mut tree = AvlTree::new();
+
+        tree.insert(10);
+        tree.insert(20);
+        tree.insert(30);
+        tree.insert(65);
+        tree.insert(15);
+
+        assert_eq!(tree.search(99), None);
     }
 }

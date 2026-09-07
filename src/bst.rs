@@ -24,13 +24,35 @@ impl Node {
 
 pub struct Tree {
     root: Option<Box<Node>>,
+    stack: Vec<Node>,
 }
 
-// implement iterator over tree root
+impl Iterator for Tree {
+    type Item = i32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // Push all the way down the left side
+        while let Some(mut node) = self.root.take() {
+            self.root = node.left.take();
+            self.stack.push(*node);
+        }
+
+        // Nothing left to visit
+        let mut node = self.stack.pop()?;
+
+        // After visiting this node, we'll traverse its right subtree
+        self.root = node.right.take();
+
+        Some(node.value)
+    }
+}
 
 impl Tree {
     pub fn new() -> Self {
-        Tree { root: None }
+        Tree {
+            root: None,
+            stack: Vec::new(),
+        }
     }
 
     pub fn insert(&mut self, value: i32) {
@@ -150,7 +172,9 @@ pub fn run_bst() {
     let search = tree.search(3);
     println!("After delete: {:?}", search);
 
-    println!("{:#?}", tree.root);
+    for node in tree {
+        println!("node value: {node}");
+    }
 }
 
 #[cfg(test)]
