@@ -135,6 +135,26 @@ impl AvlTree {
         *node = Some(new_root);
     }
 
+    fn balance_node(node: &mut Option<Box<Node>>) {
+        if let Some(n) = node {
+            // left-heavy
+            if Self::bf(n) > 1 {
+                if Self::bf(n.left.as_ref().unwrap()) >= 0 {
+                    Self::ll_rotation(node);
+                } else {
+                    Self::lr_rotation(node);
+                }
+            } else if Self::bf(n) < -1 {
+                // right-heavy
+                if Self::bf(n.right.as_ref().unwrap()) <= 0 {
+                    Self::rr_rotation(node);
+                } else {
+                    Self::rl_rotation(node);
+                }
+            }
+        }
+    }
+
     fn insert_node(node: &mut Option<Box<Node>>, key: i32) {
         match node {
             None => {
@@ -154,21 +174,7 @@ impl AvlTree {
 
                 Self::update_height(n);
 
-                // left-heavy
-                if Self::bf(n) > 1 {
-                    if Self::bf(n.left.as_ref().unwrap()) >= 0 {
-                        Self::ll_rotation(node);
-                    } else {
-                        Self::lr_rotation(node);
-                    }
-                } else if Self::bf(n) < -1 {
-                    // right-heavy
-                    if Self::bf(n.right.as_ref().unwrap()) <= 0 {
-                        Self::rr_rotation(node);
-                    } else {
-                        Self::rl_rotation(node);
-                    }
-                }
+                Self::balance_node(node);
             }
         }
     }
@@ -226,13 +232,77 @@ impl AvlTree {
         self.root.as_deref()
     }
 
+    /// Performs an in-order traversal of the subtree rooted at the given node,
+    /// appending the keys to the provided result vector.
+    ///
+    /// `LEFT -> NODE(ROOT) -> RIGHT`
     fn traversal_in_order(node: &Option<Box<Node>>, result: &mut Vec<i32>) {
-        // LEFT -> NODE(ROOT) -> RIGHT
         if let Some(n) = node {
             Self::traversal_in_order(&n.left, result);
             result.push(n.key);
             Self::traversal_in_order(&n.right, result);
         }
+    }
+
+    pub fn delete(&mut self, value: i32) {
+        Self::delete_node(&mut self.root, value);
+    }
+
+    // recursive delete
+    fn delete_node(node: &mut Option<Box<Node>>, value: i32) {
+        let Some(n) = node else {
+            return;
+        };
+
+        if n.key > value {
+            Self::delete_node(&mut n.left, value);
+        } else if n.key < value {
+            Self::delete_node(&mut n.right, value);
+        } else {
+            // found the node to delete
+            match (n.left.take(), n.right.take()) {
+                // leaf node
+                (None, None) => {
+                    *node = None;
+                    return;
+                }
+
+                // one child
+                (Some(left), None) => {
+                    *node = Some(left);
+                    return;
+                }
+                (None, Some(right)) => {
+                    *node = Some(right);
+                    return;
+                }
+
+                // two children
+                (Some(left), Some(right)) => {
+                    // find the in-order successor: right subtree's leftmost node
+                    let min_val = Self::min_value(&right);
+
+                    n.key = min_val;
+                    n.left = Some(left);
+                    n.right = Some(right);
+
+                    // delete the successor from the right subtree
+                    Self::delete_node(&mut n.right, min_val);
+                }
+            }
+        }
+
+        Self::update_height(n);
+        Self::balance_node(node);
+    }
+
+    /// Finds the leftmost leaf node in the given subtree and returns its key.
+    fn min_value(node: &Node) -> i32 {
+        let mut curr = node;
+        while let Some(ref next) = curr.left {
+            curr = next;
+        }
+        curr.key
     }
 }
 
@@ -244,10 +314,15 @@ pub fn run_avl() {
     }
 
     let search = tree.search(35);
+    println!("search result for 35: {:?}", search);
+
+    tree.delete(35);
+
+    let search = tree.search(35);
+    println!("search result for 35 after delete: {:?}", search);
 
     let in_order = tree.in_order_traversal();
 
-    println!("search result for 35: {:?}", search);
     println!("in-order traversal: {:?}", in_order);
     println!("{:#?}", tree.root_node());
 }
@@ -282,17 +357,6 @@ mod tests {
         tree.insert(20);
         tree.insert(30);
         tree.insert(10);
-
-        fn check_bf(node: Option<&Node>) -> bool {
-            if let Some(n) = node {
-                let bf = AvlTree::bf(n);
-                if bf.abs() > 1 {
-                    return false;
-                }
-                return check_bf(n.left.as_deref()) && check_bf(n.right.as_deref());
-            }
-            true
-        }
 
         assert!(check_bf(tree.root.as_deref()));
     }
@@ -390,5 +454,27 @@ mod tests {
         tree.insert(15);
 
         assert_eq!(tree.search(99), None);
+    }
+
+    #[test]
+    fn delete_rebalances() {
+        let mut tree = AvlTree::new();
+        for k in [10, 20, 30, 40, 50, 25] {
+            tree.insert(k);
+        }
+        tree.delete(10);
+        assert!(check_bf(tree.root.as_deref())); // reuse the helper
+        assert_eq!(tree.in_order_traversal(), vec![20, 25, 30, 40, 50]);
+    }
+
+    fn check_bf(node: Option<&Node>) -> bool {
+        if let Some(n) = node {
+            let bf = AvlTree::bf(n);
+            if bf.abs() > 1 {
+                return false;
+            }
+            return check_bf(n.left.as_deref()) && check_bf(n.right.as_deref());
+        }
+        true
     }
 }
